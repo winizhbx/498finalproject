@@ -62,8 +62,9 @@ if __name__ == "__main__":
 
     env.Reset()
     # load a scene from ProjectRoom environment XML file
-    # env.Load('pr2test2.env.xml')
-    env.Load('easytest.xml')
+    env.Load('pr2test2.env.xml')
+    # env.Load('easytest.xml')
+    # env.Load('empty.xml')
     time.sleep(0.1)
 
     # 1) get the 1st robot that is inside the loaded scene
@@ -80,36 +81,19 @@ if __name__ == "__main__":
 
     start = time.clock()
 
-        #### YOUR CODE HERE ####
-
-    # d = mat([[0.1, 0, 0],
-    #          [0, 0.1, 0],
-    #          [0, 0, pi/2]])
-    step = 0.3
+    step = 0.25
     d = mat([[step, 0],
              [0, step]])
-    # startconfig = mat([-3.4, -1.4, 0])
-    # connect4 = mat([[1, 0, 0], [0, 1, 0], [0, 0, 1], 
-    #                 [-1, 0, 0], [0, -1, 0], [0, 0, -1]])
-    # connect8 = mat([[1, 0, 0], [0, 1, 0], [0, 0, 1], 
-    #                 [-1, 0, 0], [0, -1, 0], [0, 0, -1],
-    #                 [1, 1, 0], [0, 1, 1], [1, 0, 1],
-    #                 [1, -1, 0], [0, 1, -1], [1, 0, -1],
-    #                 [-1, 1, 0], [0, -1, 1], [-1, 0, 1],
-    #                 [-1, -1, 0], [0, -1, -1], [-1, 0, -1],
-    #                 [-1, 1, 1], [1, -1, 1], [1, 1, -1],
-    #                 [-1, -1, 1], [1, -1, -1], [-1, 1, -1],
-    #                 [1, 1, 1], [-1, -1, -1]])
     connect8 = mat([[1, 0], [0, 1], 
                     [-1, 0], [0, -1],
                     [1, 1], [-1, 1],
                     [1, -1], [-1, -1]])
 
-    M = 2000 # initial M
+    M = 3000 # initial M
     points = []
     Xt_1 = implement.initial_sampling(env, robot, M = M)
     M = len(Xt_1)
-    print "M = ", M
+    # print "M = ", M
     # print X0
     points.append(env.plot3(points= array(Xt_1),
                                 pointsize=5.0,
@@ -117,9 +101,9 @@ if __name__ == "__main__":
 
     t = 0
     position = [-8.5, -8.5, 0.05]
-    points.append(env.plot3(points= position,
-                                pointsize=5.0,
-                                colors=array((1,0,0))))
+    # points.append(env.plot3(points= position,
+    #                             pointsize=5.0,
+    #                             colors=array((1,0,0))))
 
     print position
 
@@ -130,14 +114,14 @@ if __name__ == "__main__":
     points.append(env.plot3(points= position,
                                 pointsize=5.0,
                                 colors=array((1,0,0))))
-    points.append(env.plot3(points= array(target_position),
-                                pointsize=5.0,
-                                colors=array((0,0,0))))
+    # points.append(env.plot3(points= array(target_position),
+    #                             pointsize=5.0,
+    #                             colors=array((0,0,0))))
     # path = implement.RRT(env, robot, position, target_position)
     path = [[1, 1, 1, 1]]
     
     
-    raw_input("Press enter to exit...")
+    # raw_input("Press enter to exit...")
     path_index = 0
     heading = array([-1, -1, 0]) * step
     AAA = 1
@@ -145,15 +129,15 @@ if __name__ == "__main__":
         # t += 1
         is_wall = False
 
-        if (count % 30 == 29):
+        if (count % 15 == 14):
             target_position = implement.initial_sampling(env, robot, M = M)[0]
             points.append(env.plot3(points= array(target_position),
                                 pointsize=5.0,
                                 colors=array((0,0,0))))
             path = implement.Astar(env, robot, position, target_position)
-            points.append(env.plot3(points= array(path),
-                                        pointsize=5.0,
-                                        colors=array((1,1,1))))
+            # points.append(env.plot3(points= array(path),
+            #                             pointsize=5.0,
+            #                             colors=array((1,1,1))))
             AAA += 1
             heading = array(implement.PickRandomHeading()) * step
         else:
@@ -164,40 +148,41 @@ if __name__ == "__main__":
             position = path[0]
             del path[0]
         # position, is_wall = implement.Move(env, robot, position, heading)
-        print "heading = ", heading
+        # print "heading = ", heading
         
         sensed_position = implement.Sense(position)
         true_distances = implement.Sense2(env, robot, position, M)
-        print "distances = ", true_distances
-        print "position = ", position, " is_wall = ", is_wall
+
+        # print "distances = ", true_distances
+        # print "position = ", position, " is_wall = ", is_wall
         Xt = []
         Weight = []
         for i in range(M):
-            xm, xm_is_wall = implement.Move2(env, robot, Xt_1[i], heading)
+            xm, xm_is_wall = implement.Move3(env, robot, Xt_1[i], heading)
             xm_distances = implement.Sense2(env, robot, Xt_1[i], M)
             w = implement.calculate_posibility(xm, sensed_position, true_distances, xm_distances, is_wall, xm_is_wall)
             Weight.append(w)
             Xt.append(xm)
-
         # posibility = implement.generate_possibility(env, robot, heading, is_wall, Xt_1)
         # print "posibility = ", posibility
         Weight = Weight / sum(Weight)
         # print "Weight = ", Weight
         Xt_1 = implement.Resampling(env, robot, Xt, Weight)
         M = len(Xt_1)
-        raw_input("Press enter to exit...")
         del points[:]
+        points.append(env.plot3(points= position,
+                                pointsize=5.0,
+                                colors=array((1,0,0))))
+        if len(true_distances) > 1:
+            implement.plot_sense_distances(env, points, true_distances, position)
 
         points.append(env.plot3(points= array(Xt_1),
                                 pointsize=5.0,
                                 colors=array((1,1,0))))
-        points.append(env.plot3(points= position,
-                                pointsize=5.0,
-                                colors=array((1,0,0))))
-        points.append(env.plot3(points= array(sensed_position),
-                                pointsize=5.0,
-                                colors=array((0,1,1))))
-        if AAA % 2 == 0:
+        # points.append(env.plot3(points= array(sensed_position),
+        #                         pointsize=5.0,
+        #                         colors=array((0,1,1))))
+        if AAA % 2 == 0 and len(path) > 1:
             points.append(env.plot3(points= array(path),
                                             pointsize=5.0,
                                             colors=array((1,1,1))))
@@ -218,38 +203,29 @@ if __name__ == "__main__":
             # else:
             #     change = False
         count += 1
-        print "count = ", count
+        print "Times = ", count
         # if count > 20:
         #     break
+        print "True position: ", position
         check_final, mean_config = implement.check_final_points_cloud(Xt_1)
         if (check_final):
             print "Final position find: ", mean_config
+            print "Error = ", sqrt(sum(abs(array(mean_config) - array(position)) ** 2))
             points.append(env.plot3(points= array(mean_config),
                                 pointsize=10.0,
                                 colors=array((1,0,0))))
             implement.is_collision(env, robot, mean_config)
             break
 
+        # set back to current location
+        with env:
+            robot.SetActiveDOFValues(position)
+        waitrobot(robot)
+        # raw_input("Press enter to exit...")
 
-
-        #### Implement your algorithm to compute a path for the robot's base starting from the current configuration of the robot and ending at goalconfig. The robot's base DOF have already been set as active. It may be easier to implement this as a function in a separate file and call it here.
-
-        #### Draw the X and Y components of the configurations explored by your algorithm
-    path = [] #put your final path in this variable
-
-
-        #### END OF YOUR CODE ###
         
     end = time.clock()
     print "Time: ", end - start
-
-    # Now that you have computed a path, convert it to an openrave trajectory 
-    traj = ConvertPathToTrajectory(robot, path)
-
-    # Execute the trajectory on the robot.
-    if traj != None:
-        robot.GetController().SetPath(traj)
-
 
     waitrobot(robot)
 

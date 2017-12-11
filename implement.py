@@ -102,12 +102,22 @@ def Move2(env, robot, true_location, heading, step = STEP):
     else:
         return target_location, False
 
+def Move3(env, robot, true_location, heading, step = STEP):
+    true_location2 = np.array(true_location)
+    heading = np.array(heading)
+    target_location = true_location2
+    target_location[0] = true_location2[0] + heading[0]
+    target_location[1] = true_location2[1] + heading[1]
+
+    if (is_collision(env, robot, target_location) or check_whether_out_of_bound(target_location)):
+        return target_location, True
+    else:
+        return target_location, False
 
 def Sense(true_location):
     problist = [true_location]
     prob = [0.005]
     randstep = random.uniform(0, 1)
-    print "step = ", randstep
     neighbors = getNeighbors(true_location, randstep)
     prob.extend((np.ones(8) * 0.05625).tolist())
     twoneighbors = getTwoNeighbors(true_location, randstep)
@@ -124,10 +134,11 @@ heading = [[1, 0], [0, 1], [-1, 0], [0, -1],
 
 def Sense2(env, robot, true_location, M):
     distance = []
-    if M > 250:
+    if M > 1000:
         return distance
-    s = 0.2
+    s = 0.5
     location = array(true_location)
+
     
     global heading
     for h in heading:
@@ -139,9 +150,25 @@ def Sense2(env, robot, true_location, M):
                 break
             start += 1.0
         distance.append(start * s)
+
+    for i in range(8):
+        if random.uniform(0, 1) < 0.1:
+            distance[i] *= random.uniform(1, 1.5)
     return distance
 
+def plot_sense_distances(env, points, distances, true_location):
+    global heading
+    points_array = []
+    location = array(true_location)
+    for i in range(8):
+        h = heading[i]
+        for s in arange(0.0, distances[i], 0.02):
+            step = array([h[0] * s, h[1] * s, 0.0])
+            points_array.append(location + step)
 
+    points.append(env.plot3(points= array(points_array),
+                            pointsize=2.0,
+                            colors=array((0,1,0))))
 
 def PickRandomHeading():
     global heading
@@ -218,19 +245,19 @@ def calculate_posibility(position, sensed_position, true_distances, xm_distances
             
             # if (configDistance1(position, sensed_position) < 0.1):
             #     return 1.2
-            return diff * 1.0
+            return 1.0 * diff
         else:
-            return 0.1 * diff
+            return 0.005 * diff
     else:
         if xm_is_wall == 0:
             return 1.0 * diff
             # if (configDistance1(position, sensed_position) < 0.1):
             #     return 1.1
         else:
-            return 0.01 * diff
+            return 0.005 * diff
 
 
-NOISE = 0.5
+NOISE = 0.4
 def find_noise_helper(env, robot, point, noise, point_index = [1, 0]):
     i = 0.0
     step = 0.05
@@ -287,7 +314,7 @@ def Resampling(env, robot, Xt, Weight):
         poor = True
         for j in cloud:
             # print j, "  ", cloud[j][1][0], " ", cloud[j][1][1]
-            if configDistance1(tuple(Xt[point[i]]), j) < 1.5:
+            if configDistance1(tuple(Xt[point[i]]), j) < 1.1:
                 # print j, "  ", cloud[j][1][0], " ", cloud[j][1][1]
                 cloud[j][0] += 1
                 cloud[j][1][0] += Xt[point[i]][0]
@@ -313,7 +340,11 @@ def Resampling(env, robot, Xt, Weight):
         if index in cloud and cloud[index][0] < 15:
             # noise = find_noise(env, robot, index)
             # print "noise = ", noise
-            num = int(newXt[index] * 5 * len(Xt))
+            num = int(newXt[index] * 2 * len(Xt) * log(2000.0 / sqrt(len(Xt))))
+            # if (num < 5):
+            #     num = 5
+            if (num > 20):
+                num = 20
             # print num
             for j in range(num):
                 add_point = add_noise(array(index))
@@ -324,7 +355,8 @@ def Resampling(env, robot, Xt, Weight):
                 if (not check_whether_out_of_bound(add_point)):
                     result.append(add_point)
         else:
-            result.append(array(index))
+            if (not check_whether_out_of_bound(index)):
+                result.append(array(index))
     return result
 
 
@@ -343,7 +375,7 @@ def check_final_points_cloud(Xt):
 
 
 def Astar(env, robot, startconfig, goalconfig):
-    step = 0.3
+    step = 0.25
     d = mat([[step, 0, 0],
              [0, step, 0],
              [0, 0, 1]])
