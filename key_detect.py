@@ -70,8 +70,10 @@ def display_menu(stage=0):
                 break
 
             elif char == 'q':
+                print("")
                 print("Catch option quit")
                 print("")
+                time.sleep(0.5)
                 break
 
         return char
@@ -87,6 +89,7 @@ def display_menu(stage=0):
             if char == 'y':
                 print("")
                 print("Catch option y.")
+                print("")
                 time.sleep(0.5)
                 print("After this demo ends, please FIRST close the OpenRave window and THEN press enter to continue!!!")
                 time.sleep(0.5)
@@ -95,6 +98,7 @@ def display_menu(stage=0):
             elif char == 'n':
                 print("")
                 print("Catch option n. Now quit.")
+                print("")
                 break
 
         return char
@@ -138,6 +142,7 @@ def display_menu(stage=0):
                 print("")
                 print("Catch option q.")
                 print("")
+                time.sleep(0.5)
                 break
 
         return char
@@ -178,10 +183,11 @@ def display_menu(stage=0):
                 print("")
                 print("Catch option q.")
                 print("")
+                time.sleep(0.5)
                 break
 
         if char != 'q':
-            print("And for particle filter demo, robot always using information about whether it hits the wall and noisy sonar measurements")
+            print("And for particle filter demo, robot always using information about whether it hits the wall or noisy sonar measurements")
             print("Green lines shows the noisy sonar measurements.")
             time.sleep(1)
             print("After this demo ends, please FIRST close the OpenRave window and THEN press enter to continue!!!")
@@ -192,20 +198,23 @@ def display_menu(stage=0):
     elif stage == 4:
 
         print "Welcome back."
-        print "Do you want to watch integrated demo again with other options? [Y/N]"
+        print "Do you want to watch integrated demo again with other options? [y/n]"
         time.sleep(0.5)
         print "Notice: Press N will quit the whole demo program."
 
         while True:
             char = getch()
             if char == 'y':
+                print("")
                 print("Robot: Poor me.")
-                time.sleep(1)
+                print("")
+                time.sleep(0.5)
                 break
 
             elif char == 'n':
+                print("")
                 print("Robot: Aha! Thank you! I can relax a while.")
-                time.sleep(1)
+                time.sleep(0.5)
                 print("Now quit the whole demo program.")
                 char = 'q'
                 break
@@ -213,9 +222,10 @@ def display_menu(stage=0):
         return char
 
     elif stage == 5:
-        print "Do you want me to know my start location?\n"
-        print "a. let your robot know its start location"
-        print "b. let it be kidnapped!"
+        print "Do you want me to know my start location?"
+        time.sleep(0.5)
+        print "a. let your robot know its start location! (kalman filter/extended kalman filter + particle filter)"
+        print "b. let it be kidnapped! (particle filter)"
         print "please press a or b on your keyboard or quit with 'q'."
 
         char = 'q'
@@ -225,15 +235,15 @@ def display_menu(stage=0):
                 print("")
                 print("Catch option a.")
                 print("")
-                time.sleep(2)
+                time.sleep(0.5)
                 char = '0'
                 break
 
             elif char == 'b':
                 print("")
                 print("Catch option b.")
-                time.sleep(2)
                 print("")
+                time.sleep(0.5)
                 char = '1'
                 break
 
@@ -241,6 +251,7 @@ def display_menu(stage=0):
                 print("")
                 print("Catch option q.")
                 print("")
+                time.sleep(0.5)
                 break
 
         return char

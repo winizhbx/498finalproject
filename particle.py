@@ -128,7 +128,12 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
     # path = implement.RRT(env, robot, position, target_position)
     path = [[1, 1, 1, 1]]
     
-    
+    time.sleep(0.5)
+    print("Red point: current true location.")
+    print("Yellow points: possible locations.")
+    print("White points: Astar path.")
+    print("Green lines shows the noisy sonar measurements.")
+    time.sleep(0.5)
     raw_input("Press enter to start:")
     path_index = 0
     heading = array([-1, -1, 0]) * step
@@ -138,7 +143,7 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
         is_wall = False
 
         if (count % 15 == 14):
-            target_position = implement.initial_sampling(env, robot, M = M)[0]
+            target_position = implement.initial_sampling(env, robot, M = 1)[0]
             points.append(env.plot3(points= array(target_position),
                                 pointsize=5.0,
                                 colors=array((0,0,0))))
@@ -147,9 +152,10 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
             heading = array(implement.PickRandomHeading()) * step
         else:
             pre_position = position
-            position, is_wall = implement.Move2(env, robot, position, heading)
-            motion = np.array(position) - np.array(pre_position)
-            print "motion", motion
+            if AAA % 2 == 1:
+                position, is_wall = implement.Move2(env, robot, position, heading)
+                motion = np.array(position) - np.array(pre_position)
+                print "motion", motion
 
         if AAA % 2 == 0:
             heading = [path[0][0] - position[0], path[0][1] - position[1]]
@@ -204,7 +210,7 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
             heading = array(implement.PickRandomHeading()) * step
 
         if (len(path) < 1 and AAA % 2 == 0):
-            target_position = implement.initial_sampling(env, robot, M = M)[0]
+            target_position = implement.initial_sampling(env, robot, M = 1)[0]
             points.append(env.plot3(points= array(target_position),
                                 pointsize=5.0,
                                 colors=array((0,0,0))))
@@ -233,7 +239,8 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
             robot.SetActiveDOFValues(position)
         waitrobot(robot)
 
-    raw_input("Press close the window and continue with enter:")
+    raw_input("CLOSE THE WINDOW FIRST. Press enter to exit this demo:")
+    print "Return to main menu..."
 
 
 def particle_KF_demo(env_option=0, use_EKF=0):
@@ -290,8 +297,10 @@ def particle_KF_demo(env_option=0, use_EKF=0):
     #                             colors=array((1,0,0))))
 
     
-    heading = array([-1, -1, 0]) * step
+    heading = array([-1, -1, 0])
     points = []
+    points2 = []
+    points3 = []
 
     ## KF init
     x = np.matrix('0. 0.').T 
@@ -304,6 +313,26 @@ def particle_KF_demo(env_option=0, use_EKF=0):
     ## KF init ends
 
     count = 0
+    AAA = 1
+    path = [[1, 1, 1, 1]]
+
+
+    ## particle init
+    M = 300 # initial M
+    Xt_1 = implement.initial_sampling(env, robot, M = M)
+    M = len(Xt_1)
+    points3.append(env.plot3(points= array(Xt_1),
+                                pointsize=5.0,
+                                colors=array((1,1,0))))
+
+    time.sleep(0.5)
+    print("Red points: true locations.")
+    print("Blue points: sensed locations.")
+    print("Yellow points: Particle filter possible locations.")
+    print("Purple points: Kalman filter predict locations.")
+    print("White points: Astar path.")
+    time.sleep(0.5)
+    raw_input("Press enter to start:")
     while(True):
         # t += 1
         is_wall = False
@@ -311,12 +340,79 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         print "Time: ", count
         print "true_position: ", position
         pre_position = position
-        position, is_wall = implement.Move2(env, robot, position, heading)
-        motion = np.array(position) - np.array(pre_position)
-        print "motion: ", motion
+
+        step = implement.PickRandomStep()
+        curheading = heading
+
+        # position, is_wall = implement.Move2(env, robot, position, curheading)
+        # motion = np.array(position) - np.array(pre_position)
+        # print "motion: ", motion
+
+        if (count % 30 == 29):
+            target_position = implement.initial_sampling(env, robot, M = 1)[0]
+            points2.append(env.plot3(points= array(target_position),
+                                pointsize=5.0,
+                                colors=array((0,0,0))))
+            path = implement.Astar(env, robot, position, target_position)
+            del points2[:]
+            points2.append(env.plot3(points= array(path),
+                                            pointsize=5.0,
+                                            colors=array((1,1,1))))
+            AAA += 1
+            heading = array(implement.PickRandomHeading())
+        else:
+            pre_position = position
+            # if AAA % 2 == 0:
+            #     step = 1.0
+            # position, is_wall = implement.Move2(env, robot, position, curheading)
+            if AAA % 2 == 1:
+                position, is_wall = implement.Move_with_error(env, robot, position, heading, step = step, error = 0.05)
+                motion = np.array(position) - np.array(pre_position)
+                print "motion", motion
+
+        if AAA % 2 == 0:
+            step = 1.0
+            heading = [path[0][0] - position[0], path[0][1] - position[1]]
+            pre_position = position
+            # if random.uniform(0, 1) > 0.0:
+            position = path[0]
+            del path[0]
+            motion = np.array(position) - np.array(pre_position)
+            print "motion", motion
+
         
         sensed_position = implement.Sense_with_noise(position, 1, 1)
-        # true_distances = implement.Sense2(env, robot, position, M)
+
+        ## particle filter
+        Xt = []
+        Weight = []
+        particle_start = time.clock()
+        for i in range(M):
+            # xm, xm_is_wall = implement.Move3(env, robot, Xt_1[i], heading)
+            xm = Xt_1[i]
+            if AAA % 2 == 0:
+                # print "heading = ", heading
+                # print "step = ", step
+                # print xm
+                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.0)
+                # print xm
+            else:
+                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.05)
+            w = implement.calculate_posibility2(xm, sensed_position)
+            Weight.append(w)
+            Xt.append(xm)
+        # posibility = implement.generate_possibility(env, robot, heading, is_wall, Xt_1)
+        # print "posibility = ", posibility
+        Weight = Weight / sum(Weight)
+        Xt_1 = implement.Resampling2(env, robot, Xt, Weight)
+        particle_end = time.clock()
+        M = len(Xt_1)
+        del points3[:]
+        points3.append(env.plot3(points= array(Xt_1),
+                                pointsize=5.0,
+                                colors=array((1,1,0))))
+        check_final, mean_config = implement.check_final_points_cloud(Xt_1)
+        ## particle filter end
 
         ## KF filter
         if use_EKF == 0:
@@ -343,7 +439,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         KF_x.append(x[1][0])
         KF_x.append(sensed_position[2])
         points.append(env.plot3(points= array(KF_x),
-                                pointsize=8.0,
+                                pointsize=5.0,
                                 colors=array((0.8,0,0.8))))
         if use_EKF == 0:
             points.append(env.plot3(points= array(sensed_position),
@@ -352,16 +448,42 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         else:
             handles = []
             handles.append(env.drawlinestrip(points=array((sensed_position,(0,0,0.5))),
-                                           linewidth=3.0,
+                                           linewidth=5.0,
                                            colors=array((1,0,0,1))))
 
         ## KF filter ends
 
-        if is_wall:
-            heading = array(implement.PickRandomHeading()) * step
+        ## set heading
+        if is_wall and AAA % 2 == 1:
+            heading = array(implement.PickRandomHeading())
+
+
+        ## set plots on windows
+        del points2[:]
+        if AAA % 2 == 0 and len(path) > 1:
+            points2.append(env.plot3(points= array(path),
+                                            pointsize=5.0,
+                                            colors=array((1,1,1))))
+
+        
+
+        if (len(path) < 1 and AAA % 2 == 0):
+            target_position = implement.initial_sampling(env, robot, M = 1)[0]
+            points.append(env.plot3(points= array(target_position),
+                                pointsize=5.0,
+                                colors=array((0,0,0))))
+            path = implement.Astar(env, robot, position, target_position)
+            del points2[:]
+            points2.append(env.plot3(points= array(path),
+                                        pointsize=5.0,
+                                        colors=array((1,1,1))))
+
+        points.append(env.plot3(points= array(position),
+                                pointsize=5.0,
+                                colors=array((1,0,0))))
 
         ## For analysis
-        # particle_time_list.append((particle_end - particle_start))
+        particle_time_list.append((particle_end - particle_start))
         KF_time_list.append((KF_end - KF_start))
         
         # if implement.is_collision(env, robot, mean_config) or implement.check_whether_out_of_bound(mean_config, m = 10, n = 10):
@@ -369,7 +491,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         if implement.is_collision(env, robot, KF_x) or implement.check_whether_out_of_bound(KF_x, m = 10, n = 10):
             KF_hit_count += 1 
 
-        # particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
+        particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
         KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
 
         # set back to current location
@@ -390,7 +512,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
 
     waitrobot(robot)
 
-    raw_input("CLOSE THE WINDOW FIRST. Press enter to exit this demo...")
+    raw_input("CLOSE THE WINDOW FIRST. Press enter to exit this demo:")
     print "Return to main menu..."
 
 

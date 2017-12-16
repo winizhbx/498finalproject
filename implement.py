@@ -116,6 +116,25 @@ def Move3(env, robot, true_location, heading, step = STEP):
     else:
         return target_location, False
 
+def Move_with_error(env, robot, true_location, heading, step = 1.0, error = 0.0):
+    true_location2 = np.array(true_location)
+    heading = np.array(heading) * step
+    target_location = true_location2
+    target_location[0] = true_location2[0] + heading[0]
+    target_location[1] = true_location2[1] + heading[1]
+
+    if (random.uniform(0, 1) < error):
+        neighbors = getNeighbors(true_location2)
+        neighbor = neighbors[np.random.randint(0, 8)]
+        while(neighbor[0] == target_location[0] and neighbor[1] == target_location[1]):
+            neighbor = neighbors[np.random.randint(0, 8)]
+        target_location = neighbor
+
+    if (is_collision(env, robot, target_location) or check_whether_out_of_bound(target_location)):
+        return true_location, True
+    else:
+        return target_location, False
+
 def Sense(true_location):
     problist = [true_location]
     prob = [0.005]
@@ -184,6 +203,9 @@ def PickRandomHeading():
     global heading
     return heading[np.random.randint(8)]
 
+def PickRandomStep():
+    return random.uniform(0.05, 0.6)
+
 
 def initial_sampling(env, robot, xlimits = [-10, 10], ylimits = [-10, 10], M = 100):
     points = []
@@ -193,7 +215,14 @@ def initial_sampling(env, robot, xlimits = [-10, 10], ylimits = [-10, 10], M = 1
         config = [x, y, 0.05]
         if (not is_collision(env, robot, config)):
             points.append(config)
-        
+
+    while len(points) == 0:
+        x = random.uniform(xlimits[0], xlimits[1])
+        y = random.uniform(ylimits[0], ylimits[1])
+        config = [x, y, 0.05]
+        if (not is_collision(env, robot, config)):
+            points.append(config)
+
     return points
 
 def get_possibility(env, robot, location, heading, is_wall):
@@ -266,6 +295,9 @@ def calculate_posibility(position, sensed_position, true_distances, xm_distances
         else:
             return 0.005 * diff
 
+def calculate_posibility2(position, sensed_position, step = STEP):
+    return 1.0 / (sqrt(sum((array(position) - array(sensed_position)) ** 2)) + 0.15)
+
 
 NOISE = 0.4
 def find_noise_helper(env, robot, point, noise, point_index = [1, 0]):
@@ -285,9 +317,6 @@ def find_noise(env, robot, point, noise = [-1 * NOISE, NOISE, -1 * NOISE, NOISE]
     noise[2] = find_noise_helper(env, robot, point, noise[2], point_index = [0, -1])
     noise[3] = find_noise_helper(env, robot, point, noise[3], point_index = [0, 1])
     return noise
-
-
-
 
 def add_noise(point, noise = [-1 * NOISE, NOISE, -1 * NOISE, NOISE]):
     newpoint = point
@@ -369,6 +398,12 @@ def Resampling(env, robot, Xt, Weight):
                 result.append(array(index))
     return result
 
+def Resampling2(env, robot, Xt, Weight):
+    point = np.random.choice(len(Xt), len(Xt), p = Weight)
+    newXt = []
+    for i in range(len(Xt)):
+        newXt.append(Xt[point[i]])
+    return newXt
 
 def check_final_points_cloud(Xt):
     meanx = mean(array(Xt)[:, 0])
@@ -384,8 +419,7 @@ def check_final_points_cloud(Xt):
 
 
 
-def Astar(env, robot, startconfig, goalconfig):
-    step = 0.25
+def Astar(env, robot, startconfig, goalconfig, step = 0.25):
     d = mat([[step, 0, 0],
              [0, step, 0],
              [0, 0, 1]])
