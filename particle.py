@@ -8,6 +8,10 @@ import Queue as Q
 import implement
 import random
 from random import randint
+import numpy as np
+
+from KF import *
+from key_detect import *
 
 class Compare(object):
     def __init__(self, cost, config):
@@ -52,7 +56,7 @@ def ConvertPathToTrajectory(robot,path=[]):
     planningutils.RetimeAffineTrajectory(traj,maxvelocities=ones(3),maxaccelerations=5*ones(3))
     return traj
 
-if __name__ == "__main__":
+def particle_KF_demo(env_option=0, use_EKF=0):
 
     env = Environment()
     env.SetViewer('qtcoin')
@@ -62,9 +66,12 @@ if __name__ == "__main__":
 
     env.Reset()
     # load a scene from ProjectRoom environment XML file
-    env.Load('pr2test2.env.xml')
-    # env.Load('easytest.xml')
-    # env.Load('empty.xml')
+    if env_option == 2:
+        env.Load('pr2test2.env.xml')
+    elif env_option == 1:
+        env.Load('easytest.xml')
+    else:
+        env.Load('empty.xml')
     time.sleep(0.1)
 
     # 1) get the 1st robot that is inside the loaded scene
@@ -78,6 +85,14 @@ if __name__ == "__main__":
         # the active DOF are translation in X and Y and rotation about the Z axis of the base of the robot.
         robot.SetActiveDOFs([],DOFAffine.X|DOFAffine.Y|DOFAffine.RotationAxis,[0,0,1])
         goalconfig = [2.6,-1.3,-pi/2]
+
+    ## For analysis:
+    particle_time_list = []
+    KF_time_list = []
+    particle_hit_count = 0.
+    KF_hit_count = 0.
+    particle_err_list = []
+    KF_err_list = []
 
     start = time.clock()
 
@@ -107,6 +122,16 @@ if __name__ == "__main__":
 
     print position
 
+    ## KF init
+    x = np.matrix('0. 0.').T 
+    P = np.matrix(np.eye(2))*1000 # initial uncertainty
+    R = np.array([[1,0],[0,1]])
+    pre_position = position
+    x[0][0] = pre_position[0]
+    x[1][0] = pre_position[1]
+    Q = np.eye(2)*0.01
+    ## KF init ends
+
     count = 0
     heading = implement.PickRandomHeading()
 
@@ -135,28 +160,31 @@ if __name__ == "__main__":
                                 pointsize=5.0,
                                 colors=array((0,0,0))))
             path = implement.Astar(env, robot, position, target_position)
-            # points.append(env.plot3(points= array(path),
-            #                             pointsize=5.0,
-            #                             colors=array((1,1,1))))
             AAA += 1
             heading = array(implement.PickRandomHeading()) * step
         else:
+            pre_position = position
             position, is_wall = implement.Move2(env, robot, position, heading)
+            motion = np.array(position) - np.array(pre_position)
+            print "motion", motion
 
         if AAA % 2 == 0:
             heading = [path[0][0] - position[0], path[0][1] - position[1]]
+            pre_position = position
             position = path[0]
             del path[0]
-        # position, is_wall = implement.Move(env, robot, position, heading)
-        # print "heading = ", heading
+            motion = np.array(position) - np.array(pre_position)
+            print "motion", motion
+
         
-        sensed_position = implement.Sense(position)
+        sensed_position = implement.Sense_with_noise(position, 1, 1)
         true_distances = implement.Sense2(env, robot, position, M)
 
         # print "distances = ", true_distances
         # print "position = ", position, " is_wall = ", is_wall
         Xt = []
         Weight = []
+        particle_start = time.clock()
         for i in range(M):
             xm, xm_is_wall = implement.Move3(env, robot, Xt_1[i], heading)
             xm_distances = implement.Sense2(env, robot, Xt_1[i], M)
@@ -168,6 +196,7 @@ if __name__ == "__main__":
         Weight = Weight / sum(Weight)
         # print "Weight = ", Weight
         Xt_1 = implement.Resampling(env, robot, Xt, Weight)
+        particle_end = time.clock()
         M = len(Xt_1)
         del points[:]
         points.append(env.plot3(points= position,
@@ -186,6 +215,45 @@ if __name__ == "__main__":
             points.append(env.plot3(points= array(path),
                                             pointsize=5.0,
                                             colors=array((1,1,1))))
+        ## KF filter
+        if use_EKF == 0:
+            KF_start = time.clock()
+            meas = sensed_position[:2]
+            x, P = kalman(x, P, meas, R, Q=Q, motion=np.matrix([motion[0]+np.random.normal(0, 0.1),motion[1]+np.random.normal(0, 0.1)]).T,
+                F = np.matrix('''
+                            1. 0.;
+                            0. 1.
+                            '''),
+                H = np.matrix('''
+                            1. 0.;
+                            0. 1.'''))
+            KF_end = time.clock()
+
+        else:
+            KF_start = time.clock()
+            meas = np.sqrt(sensed_position[0]**2 + sensed_position[1]**2)
+            x, P = extend_kalman(x, P, meas, R=np.array([[40]]), motion=np.array([[motion[0],motion[1]]]).T, Q=Q)
+            KF_end = time.clock()
+        
+        KF_x = []
+        KF_x.append(x[0][0])
+        KF_x.append(x[1][0])
+        KF_x.append(sensed_position[2])
+        points.append(env.plot3(points= array(KF_x),
+                                pointsize=8.0,
+                                colors=array((0.8,0,0.8))))
+        if use_EKF == 0:
+            points.append(env.plot3(points= array(sensed_position),
+                                pointsize=5.0,
+                                colors=array((0,0,1))))
+        else:
+            handles = []
+            handles.append(env.drawlinestrip(points=array((sensed_position,(0,0,0.5))),
+                                           linewidth=3.0,
+                                           colors=array((1,0,0,1))))
+
+        ## KF filter ends
+
         if is_wall and AAA % 2 == 1:
             heading = array(implement.PickRandomHeading()) * step
 
@@ -198,36 +266,81 @@ if __name__ == "__main__":
             points.append(env.plot3(points= array(path),
                                         pointsize=5.0,
                                         colors=array((1,1,1))))
-            # if change == False:
-            #     change = True
-            # else:
-            #     change = False
+
         count += 1
         print "Times = ", count
-        # if count > 20:
-        #     break
         print "True position: ", position
         check_final, mean_config = implement.check_final_points_cloud(Xt_1)
         if (check_final):
             print "Final position find: ", mean_config
             print "Error = ", sqrt(sum(abs(array(mean_config) - array(position)) ** 2))
+            particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
+            KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
             points.append(env.plot3(points= array(mean_config),
                                 pointsize=10.0,
                                 colors=array((1,0,0))))
             implement.is_collision(env, robot, mean_config)
             break
 
+        ## For analysis
+        particle_time_list.append((particle_end - particle_start))
+        KF_time_list.append((KF_end - KF_start))
+        
+        if implement.is_collision(env, robot, mean_config) or implement.check_whether_out_of_bound(mean_config, m = 10, n = 10):
+            particle_hit_count += 1
+        if implement.is_collision(env, robot, KF_x) or implement.check_whether_out_of_bound(KF_x, m = 10, n = 10):
+            KF_hit_count += 1 
+
+        particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
+        KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
+        
+
         # set back to current location
         with env:
             robot.SetActiveDOFValues(position)
         waitrobot(robot)
-        # raw_input("Press enter to exit...")
-
         
     end = time.clock()
     print "Time: ", end - start
+    print KF_hit_count, particle_hit_count
+    implement.demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, particle_hit_count, KF_hit_count, count)
+
 
     waitrobot(robot)
 
-    raw_input("Press enter to exit...")
+    raw_input("CLOSE THE WINDOW FIRST. Press enter to exit this demo...")
+    print "Return to main menu..."
 
+
+if __name__ == "__main__":
+
+    while(1):
+
+        command = display_manu(0)
+        
+        if command == '1':
+            demo_kalman_xy()
+            raw_input("Press enter to continue a EKF demo...")
+            
+            demo_extend_kalman_xy()
+            raw_input("Press enter and back to main manu...")
+            command = display_manu(1)
+
+        if command == '2' or command == 'y':
+
+            room_option = display_manu(2)
+            KF_option = display_manu(3)
+            particle_KF_demo(room_option, KF_option)
+
+            command = display_manu(4)
+            
+            while command == 'y':
+                room_option = display_manu(2)
+                KF_option = display_manu(3)
+                particle_KF_demo(room_option, KF_option)
+
+                command = display_manu(4)
+
+
+        if command == 'q':
+            break
