@@ -372,6 +372,11 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             del path[0]
             motion = np.array(position) - np.array(pre_position)
             print "motion", motion
+        else:
+            pre_position = position
+            position, is_wall = implement.Move_with_error(env, robot, position, heading, step = step, error = 0.05)
+            motion = np.array(position) - np.array(pre_position)
+            print "motion", motion
         
         sensed_position = implement.Sense_with_noise(position, 1, 1)
 
@@ -464,11 +469,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             points.append(env.plot3(points= array(target_position),
                                 pointsize=5.0,
                                 colors=array((0,0,0))))
-<<<<<<< HEAD
             path = implement.Astar(env, robot, position, target_position, step = 0.2)
-=======
-            path = implement.Astar(env, robot, position, target_position)
->>>>>>> c0bacdb7beefc3fb03dfd511b9f52553abeb9736
             del points2[:]
             points2.append(env.plot3(points= array(path),
                                         pointsize=5.0,
