@@ -3,6 +3,8 @@ import random
 import time
 import openravepy
 from random import randint
+import matplotlib.pyplot as plt
+
 if not __openravepy_build_doc__:
     from openravepy import *
     from numpy import *
@@ -131,6 +133,14 @@ def Sense(true_location):
 
 heading = [[1, 0], [0, 1], [-1, 0], [0, -1], 
            [1, 1], [-1, 1], [1, -1], [-1, -1]]
+
+def Sense_with_noise(true_location, noise_x, noise_y):
+    sensed_position = []
+    sensed_position.append(np.random.normal(0, noise_x) + true_location[0])
+    sensed_position.append(np.random.normal(0, noise_y) + true_location[1])
+    sensed_position.append(true_location[2])
+
+    return sensed_position
 
 def Sense2(env, robot, true_location, M):
     distance = []
@@ -465,6 +475,40 @@ def Astar(env, robot, startconfig, goalconfig):
     plot[:, 2] = 0.05
     plot = list(plot)
     return plot
+
+
+def demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, particle_hit_count, KF_hit_count, count):
+    print ""
+    print "Analysis:"
+
+    print "Particle filter results invalid probablity:", particle_hit_count/count
+    print "Kalman filter results invalid probability:", KF_hit_count/count
+    
+    plt.figure()
+    plt.plot([i for i in range(len(particle_time_list))], particle_time_list, 'bo-')
+    plt.xlabel('Iteration')
+    plt.ylabel('Time')
+    plt.title('Computation Time vs Iteration (b: particle)')
+    plt.show()
+
+    plt.figure()
+    plt.plot([i for i in range(len(KF_time_list))], KF_time_list, 'go-')
+    plt.xlabel('Iteration')
+    plt.ylabel('Time')
+    plt.title('Computation Time vs Iteration (g: kalman)')
+    plt.show()
+
+    #print particle_err_list, KF_err_list
+
+    plt.figure()
+    plt.plot([i for i in range(len(particle_err_list))], particle_err_list, 'bo-')
+    KF_err_list = np.squeeze(np.asarray(KF_err_list))
+    plt.plot([i for i in range(len(KF_err_list))], KF_err_list, 'go-')
+    plt.xlabel('Iteration')
+    plt.ylabel('Error')
+    plt.title('Estimation Error vs Iteration (b: particle, g:kalman)')
+    plt.show()
+
 
 
 

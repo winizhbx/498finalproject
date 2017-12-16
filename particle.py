@@ -56,8 +56,8 @@ def ConvertPathToTrajectory(robot,path=[]):
     planningutils.RetimeAffineTrajectory(traj,maxvelocities=ones(3),maxaccelerations=5*ones(3))
     return traj
 
-def particle_KF_demo(env_option=0, use_EKF=0):
 
+def particle_kidnapped_robot(env_option=0, use_EKF=0):
     env = Environment()
     env.SetViewer('qtcoin')
     collisionChecker = RaveCreateCollisionChecker(env,'ode')
@@ -86,14 +86,6 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         robot.SetActiveDOFs([],DOFAffine.X|DOFAffine.Y|DOFAffine.RotationAxis,[0,0,1])
         goalconfig = [2.6,-1.3,-pi/2]
 
-    ## For analysis:
-    particle_time_list = []
-    KF_time_list = []
-    particle_hit_count = 0.
-    KF_hit_count = 0.
-    particle_err_list = []
-    KF_err_list = []
-
     start = time.clock()
 
     step = 0.25
@@ -103,6 +95,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
                     [-1, 0], [0, -1],
                     [1, 1], [-1, 1],
                     [1, -1], [-1, -1]])
+
 
     M = 3000 # initial M
     points = []
@@ -120,17 +113,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
     #                             pointsize=5.0,
     #                             colors=array((1,0,0))))
 
-    print position
-
-    ## KF init
-    x = np.matrix('0. 0.').T 
-    P = np.matrix(np.eye(2))*1000 # initial uncertainty
-    R = np.array([[1,0],[0,1]])
-    pre_position = position
-    x[0][0] = pre_position[0]
-    x[1][0] = pre_position[1]
-    Q = np.eye(2)*0.01
-    ## KF init ends
+    # print position
 
     count = 0
     heading = implement.PickRandomHeading()
@@ -146,7 +129,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
     path = [[1, 1, 1, 1]]
     
     
-    # raw_input("Press enter to exit...")
+    raw_input("Press enter to start:")
     path_index = 0
     heading = array([-1, -1, 0]) * step
     AAA = 1
@@ -215,6 +198,126 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             points.append(env.plot3(points= array(path),
                                             pointsize=5.0,
                                             colors=array((1,1,1))))
+
+
+        if is_wall and AAA % 2 == 1:
+            heading = array(implement.PickRandomHeading()) * step
+
+        if (len(path) < 1 and AAA % 2 == 0):
+            target_position = implement.initial_sampling(env, robot, M = M)[0]
+            points.append(env.plot3(points= array(target_position),
+                                pointsize=5.0,
+                                colors=array((0,0,0))))
+            path = implement.Astar(env, robot, position, target_position)
+            points.append(env.plot3(points= array(path),
+                                        pointsize=5.0,
+                                        colors=array((1,1,1))))
+
+        count += 1
+        print "Times = ", count
+        print "True position: ", position
+        check_final, mean_config = implement.check_final_points_cloud(Xt_1)
+        if (check_final):
+            print "Final position find: ", mean_config
+            print "Error = ", sqrt(sum(abs(array(mean_config) - array(position)) ** 2))
+            # particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
+            # KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
+            points.append(env.plot3(points= array(mean_config),
+                                pointsize=10.0,
+                                colors=array((1,0,0))))
+            implement.is_collision(env, robot, mean_config)
+            break
+
+        # set back to current location
+        with env:
+            robot.SetActiveDOFValues(position)
+        waitrobot(robot)
+
+    raw_input("Press close the window and continue with enter:")
+
+
+def particle_KF_demo(env_option=0, use_EKF=0):
+
+    env = Environment()
+    env.SetViewer('qtcoin')
+    collisionChecker = RaveCreateCollisionChecker(env,'ode')
+    env.SetCollisionChecker(collisionChecker)
+
+
+    env.Reset()
+    # load a scene from ProjectRoom environment XML file
+    if env_option == 2:
+        env.Load('pr2test2.env.xml')
+    elif env_option == 1:
+        env.Load('easytest.xml')
+    else:
+        env.Load('empty.xml')
+    time.sleep(0.1)
+
+    # 1) get the 1st robot that is inside the loaded scene
+    # 2) assign it to the variable named 'robot'
+    robot = env.GetRobots()[0]
+
+    # tuck in the PR2's arms for driving
+    tuckarms(env,robot);
+
+    with env:
+        # the active DOF are translation in X and Y and rotation about the Z axis of the base of the robot.
+        robot.SetActiveDOFs([],DOFAffine.X|DOFAffine.Y|DOFAffine.RotationAxis,[0,0,1])
+        goalconfig = [2.6,-1.3,-pi/2]
+
+    ## For analysis:
+    particle_time_list = []
+    KF_time_list = []
+    particle_hit_count = 0.
+    KF_hit_count = 0.
+    particle_err_list = []
+    KF_err_list = []
+
+    start = time.clock()
+
+    step = 0.25
+    d = mat([[step, 0],
+             [0, step]])
+    connect8 = mat([[1, 0], [0, 1], 
+                    [-1, 0], [0, -1],
+                    [1, 1], [-1, 1],
+                    [1, -1], [-1, -1]])
+
+    position = [-8.5, -8.5, 0.05]
+    # points.append(env.plot3(points= position,
+    #                             pointsize=5.0,
+    #                             colors=array((1,0,0))))
+
+    
+    heading = array([-1, -1, 0]) * step
+    points = []
+
+    ## KF init
+    x = np.matrix('0. 0.').T 
+    P = np.matrix(np.eye(2))*1000 # initial uncertainty
+    R = np.array([[1,0],[0,1]])
+    pre_position = position
+    x[0][0] = pre_position[0]
+    x[1][0] = pre_position[1]
+    Q = np.eye(2)*0.01
+    ## KF init ends
+
+    count = 0
+    while(True):
+        # t += 1
+        is_wall = False
+        print "\n"
+        print "Time: ", count
+        print "true_position: ", position
+        pre_position = position
+        position, is_wall = implement.Move2(env, robot, position, heading)
+        motion = np.array(position) - np.array(pre_position)
+        print "motion: ", motion
+        
+        sensed_position = implement.Sense_with_noise(position, 1, 1)
+        # true_distances = implement.Sense2(env, robot, position, M)
+
         ## KF filter
         if use_EKF == 0:
             KF_start = time.clock()
@@ -254,57 +357,36 @@ def particle_KF_demo(env_option=0, use_EKF=0):
 
         ## KF filter ends
 
-        if is_wall and AAA % 2 == 1:
+        if is_wall:
             heading = array(implement.PickRandomHeading()) * step
 
-        if (len(path) < 1 and AAA % 2 == 0):
-            target_position = implement.initial_sampling(env, robot, M = M)[0]
-            points.append(env.plot3(points= array(target_position),
-                                pointsize=5.0,
-                                colors=array((0,0,0))))
-            path = implement.Astar(env, robot, position, target_position)
-            points.append(env.plot3(points= array(path),
-                                        pointsize=5.0,
-                                        colors=array((1,1,1))))
-
-        count += 1
-        print "Times = ", count
-        print "True position: ", position
-        check_final, mean_config = implement.check_final_points_cloud(Xt_1)
-        if (check_final):
-            print "Final position find: ", mean_config
-            print "Error = ", sqrt(sum(abs(array(mean_config) - array(position)) ** 2))
-            particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
-            KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
-            points.append(env.plot3(points= array(mean_config),
-                                pointsize=10.0,
-                                colors=array((1,0,0))))
-            implement.is_collision(env, robot, mean_config)
-            break
-
         ## For analysis
-        particle_time_list.append((particle_end - particle_start))
+        # particle_time_list.append((particle_end - particle_start))
         KF_time_list.append((KF_end - KF_start))
         
-        if implement.is_collision(env, robot, mean_config) or implement.check_whether_out_of_bound(mean_config, m = 10, n = 10):
-            particle_hit_count += 1
+        # if implement.is_collision(env, robot, mean_config) or implement.check_whether_out_of_bound(mean_config, m = 10, n = 10):
+        #     particle_hit_count += 1
         if implement.is_collision(env, robot, KF_x) or implement.check_whether_out_of_bound(KF_x, m = 10, n = 10):
             KF_hit_count += 1 
 
-        particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
+        # particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
         KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
-        
 
         # set back to current location
         with env:
             robot.SetActiveDOFValues(position)
         waitrobot(robot)
+
+        # end iteration
+        count += 1
+        time.sleep(0.1)
+        if (count > 100):
+            break
         
     end = time.clock()
     print "Time: ", end - start
     print KF_hit_count, particle_hit_count
     implement.demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, particle_hit_count, KF_hit_count, count)
-
 
     waitrobot(robot)
 
@@ -314,9 +396,12 @@ def particle_KF_demo(env_option=0, use_EKF=0):
 
 if __name__ == "__main__":
 
+    command = 's'
     while(1):
 
-        command = display_manu(0)
+        if command != 'y':
+            command = display_menu(0)
+        quit = 0
         
         if command == '1':
             demo_kalman_xy()
@@ -324,23 +409,67 @@ if __name__ == "__main__":
             
             demo_extend_kalman_xy()
             raw_input("Press enter and back to main manu...")
-            command = display_manu(1)
+            command = display_menu(1)
+            if command == 'q':
+                print("Quit!")
+                break
 
         if command == '2' or command == 'y':
+            room_option = display_menu(2)
+            if room_option == 'q':
+                print("Quit!")
+                break
 
-            room_option = display_manu(2)
-            KF_option = display_manu(3)
-            particle_KF_demo(room_option, KF_option)
+            start_option = display_menu(5)
+            if start_option == 'q':
+                print("Quit!")
+                break
 
-            command = display_manu(4)
-            
-            while command == 'y':
-                room_option = display_manu(2)
-                KF_option = display_manu(3)
+            if start_option == '0':
+                KF_option = display_menu(3)
+                if KF_option == 'q':
+                    print("Quit!")
+                    break
+
                 particle_KF_demo(room_option, KF_option)
 
-                command = display_manu(4)
+                command = display_menu(4)
+                if command == 'q':
+                    print("Quit!")
+                    break
+
+                while command == 'y':
+                    room_option = display_menu(2)
+                    if room_option == 'q':
+                        quit = 1 
+                        break
+
+                    KF_option = display_menu(3)
+                    if KF_option == 'q':
+                        quit = 1
+                        break
+
+                    particle_KF_demo(room_option, KF_option)
+
+                    command = display_menu(4)
+                    if command == 'q':
+                        quit = 1
+                        break
+
+            elif start_option == '1':
+                particle_kidnapped_robot(room_option)
+
+                command = display_menu(4)
+                if command == 'q':
+                    print("Quit!")
+                    break
+                elif command == 'y':
+                    continue
 
 
-        if command == 'q':
+            
+
+
+        if command == 'q' or quit == 1:
+            print("Quit!")
             break
