@@ -3,7 +3,6 @@
 import time
 import openravepy
 
-#### YOUR IMPORTS GO HERE ####
 import Queue as Q
 import implement
 import random
@@ -20,8 +19,6 @@ class Compare(object):
         return
     def __cmp__(self, other):
         return cmp(self.cost, other.cost) #find the smallest cost
-
-#### END OF YOUR IMPORTS ####
 
 if not __openravepy_build_doc__:
     from openravepy import *
@@ -101,19 +98,12 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
     points = []
     Xt_1 = implement.initial_sampling(env, robot, M = M)
     M = len(Xt_1)
-    # print "M = ", M
-    # print X0
     points.append(env.plot3(points= array(Xt_1),
                                 pointsize=5.0,
                                 colors=array((1,1,0))))
 
     t = 0
     position = [-8.5, -8.5, 0.05]
-    # points.append(env.plot3(points= position,
-    #                             pointsize=5.0,
-    #                             colors=array((1,0,0))))
-
-    # print position
 
     count = 0
     heading = implement.PickRandomHeading()
@@ -122,10 +112,6 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
     points.append(env.plot3(points= position,
                                 pointsize=5.0,
                                 colors=array((1,0,0))))
-    # points.append(env.plot3(points= array(target_position),
-    #                             pointsize=5.0,
-    #                             colors=array((0,0,0))))
-    # path = implement.RRT(env, robot, position, target_position)
     path = [[1, 1, 1, 1]]
     
     time.sleep(0.5)
@@ -139,7 +125,6 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
     heading = array([-1, -1, 0]) * step
     AAA = 1
     while(True):
-        # t += 1
         is_wall = False
 
         if (count % 15 == 14):
@@ -169,8 +154,6 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
         sensed_position = implement.Sense_with_noise(position, 1, 1)
         true_distances = implement.Sense2(env, robot, position, M)
 
-        # print "distances = ", true_distances
-        # print "position = ", position, " is_wall = ", is_wall
         Xt = []
         Weight = []
         particle_start = time.clock()
@@ -180,10 +163,7 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
             w = implement.calculate_posibility(xm, sensed_position, true_distances, xm_distances, is_wall, xm_is_wall)
             Weight.append(w)
             Xt.append(xm)
-        # posibility = implement.generate_possibility(env, robot, heading, is_wall, Xt_1)
-        # print "posibility = ", posibility
         Weight = Weight / sum(Weight)
-        # print "Weight = ", Weight
         Xt_1 = implement.Resampling(env, robot, Xt, Weight)
         particle_end = time.clock()
         M = len(Xt_1)
@@ -197,9 +177,6 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
         points.append(env.plot3(points= array(Xt_1),
                                 pointsize=5.0,
                                 colors=array((1,1,0))))
-        # points.append(env.plot3(points= array(sensed_position),
-        #                         pointsize=5.0,
-        #                         colors=array((0,1,1))))
         if AAA % 2 == 0 and len(path) > 1:
             points.append(env.plot3(points= array(path),
                                             pointsize=5.0,
@@ -226,8 +203,6 @@ def particle_kidnapped_robot(env_option=0, use_EKF=0):
         if (check_final):
             print "Final position find: ", mean_config
             print "Error = ", sqrt(sum(abs(array(mean_config) - array(position)) ** 2))
-            # particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
-            # KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
             points.append(env.plot3(points= array(mean_config),
                                 pointsize=10.0,
                                 colors=array((1,0,0))))
