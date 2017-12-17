@@ -124,7 +124,26 @@ def Move_with_error(env, robot, true_location, heading, step = 1.0, error = 0.0)
     target_location[1] = true_location2[1] + heading[1]
 
     if (random.uniform(0, 1) < error):
-        neighbors = getNeighbors(true_location2)
+        neighbors = getNeighbors(true_location2, step)
+        neighbor = neighbors[np.random.randint(0, 8)]
+        while(neighbor[0] == target_location[0] and neighbor[1] == target_location[1]):
+            neighbor = neighbors[np.random.randint(0, 8)]
+        target_location = neighbor
+
+    if (is_collision(env, robot, target_location) or check_whether_out_of_bound(target_location)):
+        return true_location, True
+    else:
+        return target_location, False
+
+def Move_with_error2(env, robot, true_location, heading, step = 1.0, error = 0.0):
+    true_location2 = np.array(true_location)
+    heading = np.array(heading) * step
+    target_location = true_location2
+    target_location[0] = true_location2[0] + heading[0]
+    target_location[1] = true_location2[1] + heading[1]
+
+    if (random.uniform(0, 1) < error):
+        neighbors = getNeighbors(true_location2, 0.2)
         neighbor = neighbors[np.random.randint(0, 8)]
         while(neighbor[0] == target_location[0] and neighbor[1] == target_location[1]):
             neighbor = neighbors[np.random.randint(0, 8)]
@@ -204,7 +223,7 @@ def PickRandomHeading():
     return heading[np.random.randint(8)]
 
 def PickRandomStep():
-    return random.uniform(0.05, 0.6)
+    return random.uniform(0.05, 0.5)
 
 
 def initial_sampling(env, robot, xlimits = [-10, 10], ylimits = [-10, 10], M = 100):

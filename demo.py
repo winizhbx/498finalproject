@@ -367,14 +367,15 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             step = 1.0
             heading = [path[0][0] - position[0], path[0][1] - position[1]]
             pre_position = position
-            # if random.uniform(0, 1) > 0.0:
-            position = path[0]
-            del path[0]
+            if random.uniform(0, 1) > 0.08:
+                print "error"
+                position = path[0]
+                del path[0]
             motion = np.array(position) - np.array(pre_position)
             print "motion", motion
         else:
             pre_position = position
-            position, is_wall = implement.Move_with_error(env, robot, position, heading, step = step, error = 0.05)
+            position, is_wall = implement.Move_with_error(env, robot, position, heading, step = step, error = 0.08)
             motion = np.array(position) - np.array(pre_position)
             print "motion", motion
         
@@ -391,10 +392,10 @@ def particle_KF_demo(env_option=0, use_EKF=0):
                 # print "heading = ", heading
                 # print "step = ", step
                 # print xm
-                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.0)
+                xm, xm_is_wall = implement.Move_with_error2(env, robot, Xt_1[i], heading, step = step, error = 0.08)
                 # print xm
             else:
-                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.05)
+                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.08)
             w = implement.calculate_posibility2(xm, sensed_position)
             Weight.append(w)
             Xt.append(xm)
