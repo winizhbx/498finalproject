@@ -242,6 +242,24 @@ def initial_sampling(env, robot, xlimits = [-10, 10], ylimits = [-10, 10], M = 1
 
     return points
 
+def initial_sampling2(env, robot, location, noise = 1.0, xlimits = [-10, 10], ylimits = [-10, 10], M = 100):
+    points = []
+    for i in range(M):
+        x = random.normal(0, noise) + location[0]
+        y = random.normal(0, noise) + location[1]
+        config = [x, y, 0.05]
+        if (not is_collision(env, robot, config)):
+            points.append(config)
+
+    while len(points) == 0:
+        x = random.normal(0, noise) + location[0]
+        y = random.normal(0, noise) + location[1]
+        config = [x, y, 0.05]
+        if (not is_collision(env, robot, config)):
+            points.append(config)
+
+    return points
+
 def get_possibility(env, robot, location, heading, is_wall):
     p = 1
     neighbors = getNeighbors(location)
@@ -306,7 +324,7 @@ def calculate_posibility(position, sensed_position, true_distances, xm_distances
             return 0.005 * diff
 
 def calculate_posibility2(position, sensed_position, step = STEP):
-    return 1.0 / (sqrt(sum((array(position) - array(sensed_position)) ** 2)) + 0.15)
+    return 1.0 / (sqrt(sum((array(position) - array(sensed_position)) ** 2)) + 0.2)
 
 
 NOISE = 0.4
@@ -495,7 +513,7 @@ def Astar(env, robot, startconfig, goalconfig, step = 0.25):
     return plot
 
 
-def demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, particle_hit_count, KF_hit_count, count):
+def demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, sense_err_list, particle_hit_count, KF_hit_count, count):
     print ""
     print "Analysis:"
 
@@ -519,13 +537,15 @@ def demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_li
     plt.show()
 
     plt.figure()
-    plt.plot([i for i in range(len(particle_err_list))], particle_err_list, 'bo-')
+    plt.plot([i for i in range(len(particle_err_list))], particle_err_list, 'bo-', label = 'particle')
     KF_err_list = np.squeeze(np.asarray(KF_err_list))
-    plt.plot([i for i in range(len(KF_err_list))], KF_err_list, 'go-')
+    plt.plot([i for i in range(len(KF_err_list))], KF_err_list, 'go-', label = 'kalman')
+    plt.plot([i for i in range(len(sense_err_list))], sense_err_list, 'k--', label = 'sensor')
     plt.xlabel('Iteration')
     plt.ylabel('Error')
-    plt.title('Estimation Error vs Iteration (b: particle, g:kalman)')
-    plt.savefig('Estimation Error vs Iteration (b: particle, g:kalman).png')
+    plt.legend(loc='upper left')
+    plt.title('Estimation Error vs Iteration')
+    plt.savefig('Estimation Error vs Iteration.png')
     plt.show()
 
 

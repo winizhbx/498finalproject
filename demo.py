@@ -255,6 +255,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
     KF_hit_count = 0.
     particle_err_list = []
     KF_err_list = []
+    sense_err_list = []
 
     start = time.clock()
 
@@ -293,12 +294,15 @@ def particle_KF_demo(env_option=0, use_EKF=0):
 
 
     ## particle init
-    M = 300 # initial M
-    Xt_1 = implement.initial_sampling(env, robot, M = M)
+    M = 100 # initial M
+    Xt_1 = implement.initial_sampling2(env, robot, position, noise = 0.5, M = M)
     M = len(Xt_1)
     points3.append(env.plot3(points= array(Xt_1),
                                 pointsize=5.0,
                                 colors=array((1,1,0))))
+    with env:
+        robot.SetActiveDOFValues(position)
+    waitrobot(robot)
 
     time.sleep(0.5)
     print("Red points: true locations.")
@@ -342,7 +346,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             step = 1.0
             heading = [path[0][0] - position[0], path[0][1] - position[1]]
             pre_position = position
-            if random.uniform(0, 1) > 0.08:
+            if random.uniform(0, 1) > 0.15:
                 print "error"
                 position = path[0]
                 del path[0]
@@ -350,7 +354,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             print "motion", motion
         else:
             pre_position = position
-            position, is_wall = implement.Move_with_error(env, robot, position, heading, step = step, error = 0.08)
+            position, is_wall = implement.Move_with_error(env, robot, position, heading, step = step, error = 0.15)
             motion = np.array(position) - np.array(pre_position)
             print "motion", motion
         
@@ -367,10 +371,10 @@ def particle_KF_demo(env_option=0, use_EKF=0):
                 # print "heading = ", heading
                 # print "step = ", step
                 # print xm
-                xm, xm_is_wall = implement.Move_with_error2(env, robot, Xt_1[i], heading, step = step, error = 0.08)
+                xm, xm_is_wall = implement.Move_with_error2(env, robot, Xt_1[i], heading, step = step, error = 0.15)
                 # print xm
             else:
-                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.08)
+                xm, xm_is_wall = implement.Move_with_error(env, robot, Xt_1[i], heading, step = step, error = 0.15)
             w = implement.calculate_posibility2(xm, sensed_position)
             Weight.append(w)
             Xt.append(xm)
@@ -423,6 +427,9 @@ def particle_KF_demo(env_option=0, use_EKF=0):
             handles.append(env.drawlinestrip(points=array((sensed_position,(0,0,0.5))),
                                            linewidth=5.0,
                                            colors=array((1,0,0,1))))
+            points.append(env.plot3(points= array(sensed_position),
+                                pointsize=5.0,
+                                colors=array((0,0,1))))
 
         ## KF filter ends
 
@@ -454,6 +461,9 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         points.append(env.plot3(points= array(position),
                                 pointsize=5.0,
                                 colors=array((1,0,0))))
+        points.append(env.plot3(points= array(mean_config),
+                                pointsize=5.0,
+                                colors=array((0,1,1))))
 
         ## For analysis
         particle_time_list.append((particle_end - particle_start))
@@ -466,6 +476,7 @@ def particle_KF_demo(env_option=0, use_EKF=0):
 
         particle_err_list.append(sqrt(sum(abs(array(mean_config) - array(position)) ** 2)))
         KF_err_list.append(sqrt(sum(abs(array(KF_x) - array(position)) ** 2)))
+        sense_err_list.append(sqrt(sum(abs(array(sensed_position) - array(position)) ** 2)))
 
         # set back to current location
         with env:
@@ -475,13 +486,13 @@ def particle_KF_demo(env_option=0, use_EKF=0):
         # end iteration
         count += 1
         time.sleep(0.1)
-        if (count > 100):
+        if (count > 150):
             break
         
     end = time.clock()
     print "Time: ", end - start
     print KF_hit_count, particle_hit_count
-    implement.demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, particle_hit_count, KF_hit_count, count)
+    implement.demo_analysis(particle_time_list, KF_time_list, particle_err_list, KF_err_list, sense_err_list, particle_hit_count, KF_hit_count, count)
 
     waitrobot(robot)
 
